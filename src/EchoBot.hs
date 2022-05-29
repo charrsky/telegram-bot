@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use isNothing" #-}
 
 -- | The pure echo-bot logic module. It doesn't know anything about
 -- Telegram, other chat protocols, or any input/output. This is why we
@@ -129,28 +131,41 @@ respond h (MessageEvent message)
   | isCommand h "/repeat" message = handleRepeatCommand h
   | otherwise = respondWithEchoedMessage h message
 
+-- Switched from a case expression to guards here because of lexical scope issues.
 isCommand :: Handle m a -> T.Text -> a -> Bool
-isCommand h _ message = case hTextFromMessage h message of
-  Nothing -> False
-  Just _ -> True
+isCommand h command message | messageText == Nothing = False
+                            | messageText == Just command = True
+                            | otherwise = False
+  where messageText = hTextFromMessage h message
 
 handleHelpCommand :: Monad m => Handle m a -> m [Response a]
 handleHelpCommand h = do
   Logger.logInfo (hLogHandle h) "Got the help command"
-  error "Not implemented"
+  return [MessageResponse helpMessage]
+    where helpMessage = hMessageFromText h $ confHelpReply $ hConfig h
 
 handleSettingRepetitionCount :: Monad m => Handle m a -> Int -> m [Response a]
 handleSettingRepetitionCount h count = do
   Logger.logInfo (hLogHandle h) $ "The user has set the repetition count to " .< count
-  error "Not implemented"
+  hModifyState' h repCountFunc
+  return [MessageResponse repCountMessage]
+    where repCountMessage = hMessageFromText h $ "The repetition count has been set to " <> T.pack (show count)
+          repCountFunc (State _) = State {stRepetitionCount = count}
 
 handleRepeatCommand :: Monad m => Handle m a -> m [Response a]
 handleRepeatCommand h = do
   Logger.logInfo (hLogHandle h) "Got the repeat command"
-  error "Not implemented"
+  botState <- hGetState h
+  let repCount = stRepetitionCount botState
+  let menuTitle = T.replace "{count}" (T.pack $ show repCount) (confRepeatReply $ hConfig h)
+  return [MenuResponse menuTitle makeMenu]
+    where makeOption n = (n, SetRepetitionCountEvent n)
+          makeMenu = [makeOption n | n <- [1 .. 5]]
 
 respondWithEchoedMessage :: Monad m => Handle m a -> a -> m [Response a]
 respondWithEchoedMessage h message = do
   Logger.logInfo (hLogHandle h) $
     "Echoing user input: " .< fromMaybe "<multimedia?>" (hTextFromMessage h message)
-  return [MessageResponse message]
+  botState <- hGetState h
+  let count = stRepetitionCount botState
+  return $ replicate count (MessageResponse message)
