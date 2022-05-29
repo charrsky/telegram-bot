@@ -132,7 +132,7 @@ respond h (MessageEvent message)
 isCommand :: Handle m a -> T.Text -> a -> Bool
 isCommand h _ message = case hTextFromMessage h message of
   Nothing -> False
-  Just _ -> error "Not implemented"
+  Just _ -> True
 
 handleHelpCommand :: Monad m => Handle m a -> m [Response a]
 handleHelpCommand h = do
@@ -153,4 +153,4 @@ respondWithEchoedMessage :: Monad m => Handle m a -> a -> m [Response a]
 respondWithEchoedMessage h message = do
   Logger.logInfo (hLogHandle h) $
     "Echoing user input: " .< fromMaybe "<multimedia?>" (hTextFromMessage h message)
-  error "Not implemented"
+  return [MessageResponse message]
