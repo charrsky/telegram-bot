@@ -65,11 +65,14 @@ extractValue :: EchoBot.Response T.Text -> T.Text
 extractValue (EchoBot.MessageResponse resp) = resp
 extractValue (EchoBot.MenuResponse title _) = title
 
+stripQuotationMarks :: String -> String
+stripQuotationMarks = tail . init
+
 printResponse :: [EchoBot.Response T.Text] -> IO ()
 printResponse response =
   if "" `elem` valuesList response
     then TIO.putStr T.empty
-    else TIO.putStr (T.pack $ unlines $ map show response)
+    else TIO.putStr (T.pack $ unlines $ map (stripQuotationMarks . show) response)
   where
     valuesList = map extractValue
 
