@@ -33,6 +33,13 @@ ghc-options:
 
 library:
   source-dirs: src
+  exposed-modules:
+  - EchoBot
+  - Config
+  - ConfigurationTypes
+  - Logger
+  - FrontEnd.Console
+  - Logger.Impl
 
 executables:
   echo-bot-exe:

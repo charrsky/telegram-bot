@@ -26,4 +26,5 @@ withHandle :: Config -> (Logger.Handle IO -> IO ()) -> IO ()
 withHandle config f = f Logger.Handle {Logger.hLowLevelLog = logWith config}
 
 logWith :: Config -> Logger.Level -> T.Text -> IO ()
-logWith _ _ _ = error "Not implemented"
+logWith _ _ _ = do
+  return ()

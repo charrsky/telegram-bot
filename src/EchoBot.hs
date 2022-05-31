@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
 {-# HLINT ignore "Use isNothing" #-}
 
 -- | The pure echo-bot logic module. It doesn't know anything about
@@ -8,7 +9,7 @@
 module EchoBot
   ( makeState,
     respond,
-    Event (MessageEvent),
+    Event (..),
     Response (..),
     State,
     Handle (..),
@@ -94,7 +95,11 @@ data Response a
     -- * an event that the caller code should sent to us if the user
     --   chooses this repetition count
     MenuResponse Title [(RepetitionCount, Event a)]
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show a => Show (Response a) where
+  show (MessageResponse a) = show a
+  show (MenuResponse title _) = show title
 
 type Title = Text
 
@@ -133,24 +138,28 @@ respond h (MessageEvent message)
 
 -- Switched from a case expression to guards here because of lexical scope issues.
 isCommand :: Handle m a -> T.Text -> a -> Bool
-isCommand h command message | messageText == Nothing = False
-                            | messageText == Just command = True
-                            | otherwise = False
-  where messageText = hTextFromMessage h message
+isCommand h command message
+  | messageText == Nothing = False
+  | messageText == Just command = True
+  | otherwise = False
+  where
+    messageText = hTextFromMessage h message
 
 handleHelpCommand :: Monad m => Handle m a -> m [Response a]
 handleHelpCommand h = do
   Logger.logInfo (hLogHandle h) "Got the help command"
   return [MessageResponse helpMessage]
-    where helpMessage = hMessageFromText h $ confHelpReply $ hConfig h
+  where
+    helpMessage = hMessageFromText h $ confHelpReply $ hConfig h
 
 handleSettingRepetitionCount :: Monad m => Handle m a -> Int -> m [Response a]
 handleSettingRepetitionCount h count = do
   Logger.logInfo (hLogHandle h) $ "The user has set the repetition count to " .< count
   hModifyState' h repCountFunc
   return [MessageResponse repCountMessage]
-    where repCountMessage = hMessageFromText h $ "The repetition count has been set to " <> T.pack (show count)
-          repCountFunc (State _) = State {stRepetitionCount = count}
+  where
+    repCountMessage = hMessageFromText h $ "The repetition count has been set to " <> T.pack (show count)
+    repCountFunc (State _) = State {stRepetitionCount = count}
 
 handleRepeatCommand :: Monad m => Handle m a -> m [Response a]
 handleRepeatCommand h = do
@@ -159,8 +168,9 @@ handleRepeatCommand h = do
   let repCount = stRepetitionCount botState
   let menuTitle = T.replace "{count}" (T.pack $ show repCount) (confRepeatReply $ hConfig h)
   return [MenuResponse menuTitle makeMenu]
-    where makeOption n = (n, SetRepetitionCountEvent n)
-          makeMenu = [makeOption n | n <- [1 .. 5]]
+  where
+    makeOption n = (n, SetRepetitionCountEvent n)
+    makeMenu = [makeOption n | n <- [1 .. 5]]
 
 respondWithEchoedMessage :: Monad m => Handle m a -> a -> m [Response a]
 respondWithEchoedMessage h message = do
